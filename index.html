@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Client Portal - Login/Register</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      position: relative;
+    }
+    h2 {
+      text-align: center;
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 16px;
+    }
+    .hidden { display: none !important; }
+    p#status {
+      color: green;
+      margin-top: 10px;
+      font-size: 14px;
+      text-align: center;
+    }
+    .loader-backdrop {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.4);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+    .loader {
+      width: 50px; height: 50px;
+      border: 6px solid #f3f3f3;
+      border-top: 6px solid #007bff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .switch-link {
+      font-size: 14px;
+      text-align: center;
+      margin-top: 15px;
+    }
+    .switch-link a {
+      color: #007bff;
+      cursor: pointer;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2 id="form-title">Register</h2>
+
+  <input type="email" id="email" placeholder="Email" />
+  <input type="password" id="password" placeholder="Password" />
+  <input type="text" id="code" class="hidden" placeholder="Enter Verification Code" />
+
+  <button onclick="handleAction()" id="actionBtn">Register</button>
+
+  <div class="switch-link">
+    <span id="switch-msg">Already registered? <a onclick="switchToLogin()">Login</a></span>
+  </div>
+
+  <p id="status"></p>
+</div>
+
+<!-- Loader -->
+<div id="loader" class="loader-backdrop hidden">
+  <div class="loader"></div>
+</div>
+
+
+<script>
+  const API = "https://script.google.com/macros/s/AKfycbz2W_vo8iLgO9zt6ECiAj8Qy0Bzai246TtLmMQRa36-SsFcDt1m9AvDqokw3uUmxnTy/exec";
+  let isLogin = false;
+  let step = "register";
+
+  function showLoader(show) {
+    document.getElementById("loader").classList.toggle("hidden", !show);
+  }
+
+  function switchToLogin() {
+    isLogin = true;
+    step = "login";
+    document.getElementById("form-title").textContent = "Login";
+    document.getElementById("code").classList.add("hidden");
+    document.getElementById("actionBtn").textContent = "Login";
+    document.getElementById("switch-msg").innerHTML = `Don't have an account? <a onclick="switchToRegister()">Register</a>`;
+    document.getElementById("status").textContent = "";
+  }
+
+  function switchToRegister() {
+    isLogin = false;
+    step = "register";
+    document.getElementById("form-title").textContent = "Register";
+    document.getElementById("code").classList.add("hidden");
+    document.getElementById("actionBtn").textContent = "Register";
+    document.getElementById("switch-msg").innerHTML = `Already registered? <a onclick="switchToLogin()">Login</a>`;
+    document.getElementById("status").textContent = "";
+  }
+
+  function handleAction() {
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value.trim();
+    const code = document.getElementById("code").value.trim();
+    const status = document.getElementById("status");
+
+    if (!email || !password) {
+      status.textContent = "Please enter email and password.";
+      return;
+    }
+
+    showLoader(true);
+
+    if (isLogin) {
+      fetch(API, {
+        method: "POST",
+        body: JSON.stringify({ action: "login", email, password })
+      })
+      .then(res => res.json())
+      .then(data => {
+        showLoader(false);
+        status.textContent = data.message;
+        if (data.status === "ok") {
+  localStorage.setItem("userEmail", email);
+  localStorage.setItem("userPassword", password);
+  localStorage.setItem("userRole", data.role); // ✅ Save role
+
+  if (data.role === "admin") {
+    window.location.href = "admin.html";
+  } else {
+    window.location.href = "dashboard.html";
+  }
+}
+      });
+    } else {
+      if (step === "register") {
+        fetch(API, {
+          method: "POST",
+          body: JSON.stringify({ action: "register", email, password })
+        })
+        .then(res => res.json())
+        .then(data => {
+          showLoader(false);
+          if (data.status === "exists") {
+            status.textContent = "Email already registered. Redirecting to login...";
+            setTimeout(() => {
+              switchToLogin();
+            }, 1500);
+          } else if (data.status === "verify") {
+            step = "verify";
+            document.getElementById("code").classList.remove("hidden");
+            document.getElementById("actionBtn").textContent = "Verify";
+            status.textContent = "Verification code sent to your email.";
+          } else {
+            status.textContent = data.message;
+          }
+        });
+      } else if (step === "verify") {
+        if (!code) {
+          showLoader(false);
+          status.textContent = "Please enter verification code.";
+          return;
+        }
+
+        fetch(API, {
+          method: "POST",
+          body: JSON.stringify({ action: "verify", email, code })
+        })
+        .then(res => res.json())
+        .then(data => {
+          showLoader(false);
+          status.textContent = data.message;
+          if (data.status === "success") {
+            setTimeout(() => {
+              switchToLogin();
+            }, 1000);
+          }
+        });
+      }
+    }
+  }
+</script>
+
+
+
+</body>
+</html>

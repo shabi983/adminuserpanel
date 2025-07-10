@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Panel</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #f4f4f4; }
+    .container { max-width: 1000px; margin: auto; padding: 20px; }
+    .tab-buttons { display: flex; gap: 10px; margin-bottom: 20px; }
+    .tab-buttons button { padding: 10px 20px; border: none; background: #007bff; color: white; cursor: pointer; border-radius: 5px; }
+    .tab-buttons button.active { background: #0056b3; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    table, th, td { border: 1px solid #ccc; }
+    th, td { padding: 8px; text-align: left; }
+    select, button.action-btn { padding: 5px; }
+    .loader-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center; z-index: 999; }
+    .loader { border: 6px solid #f3f3f3; border-top: 6px solid #007bff; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
+    .hidden { display: none !important; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+<div class="container">
+  <button onclick="logout()" style="position: fixed; top: 10px; right: 10px; background: red; color: white; padding: 8px; border: none; border-radius: 4px; cursor: pointer;">Logout</button>
+
+  <h2>Admin Panel</h2>
+  <div class="tab-buttons">
+    <button onclick="switchTab('users')" id="btn-users" class="active">Users</button>
+    <button onclick="switchTab('submissions')" id="btn-submissions">Submissions</button>
+    <button onclick="switchTab('emails')" id="btn-emails">Send Emails</button>
+  </div>
+
+  <div id="tab-users" class="tab-content active">
+    <h3>Registered Users</h3>
+    <table id="usersTable">
+      <thead><tr><th>Email</th><th>Status</th><th>Role</th><th>Update Status</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div id="tab-submissions" class="tab-content">
+    <h3>Document Submissions</h3>
+    <table id="submissionsTable">
+      <thead><tr><th>Email</th><th>Filename</th><th>Status</th><th>Date</th><th>Change</th><th>Delete</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div id="tab-emails" class="tab-content">
+    <h3>Send Bulk Emails by Status</h3>
+    <select id="statusFilter" onchange="filterByStatus()">
+      <option value="">-- Select Status --</option>
+      <option value="Processing">Processing</option>
+      <option value="Signed">Signed</option>
+      <option value="Delivered">Delivered</option>
+      <option value="Rejected">Rejected</option>
+    </select>
+    <button onclick="sendBulkEmails()">Send Email</button>
+    <table id="emailTable">
+      <thead><tr><th><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)" /></th><th>Email</th><th>Filename</th><th>Status</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="loader" class="loader-backdrop hidden">
+  <div class="loader"></div>
+</div>
+
+<script>
+const API = "https://script.google.com/macros/s/AKfycbz2W_vo8iLgO9zt6ECiAj8Qy0Bzai246TtLmMQRa36-SsFcDt1m9AvDqokw3uUmxnTy/exec";
+
+
+function logout() {
+  localStorage.removeItem("userEmail");
+  localStorage.removeItem("userPassword");
+  window.location.href = "index.html#login";
+}
+
+
+// Only allow admin to access this page
+document.addEventListener("DOMContentLoaded", async () => {
+  const email = localStorage.getItem("userEmail");
+  const password = localStorage.getItem("userPassword");
+
+  if (!email || !password) {
+    window.location.href = "index.html#login";
+    return;
+  }
+
+  // Optional: You can show loader here if you want
+  showLoader(true);
+
+  const res = await fetch(API, {
+    method: "POST",
+    body: JSON.stringify({
+      action: "login",
+      email,
+      password
+    })
+  });
+
+  const data = await res.json();
+
+  // Only allow access if role = admin
+  if (data.status !== "ok" || data.role !== "admin") {
+    alert("Unauthorized access");
+    localStorage.clear();
+    window.location.href = "index.html#login";
+    return;
+  }
+
+  // If login is successful and role is admin, load content
+  fetchUsers();
+  fetchSubmissions();
+  showLoader(false);
+});
+
+
+function switchTab(tab) {
+  document.querySelectorAll(".tab-content").forEach(e => e.classList.remove("active"));
+  document.querySelectorAll(".tab-buttons button").forEach(e => e.classList.remove("active"));
+  document.getElementById("tab-" + tab).classList.add("active");
+  document.getElementById("btn-" + tab).classList.add("active");
+}
+
+function showLoader(show) {
+  document.getElementById("loader").classList.toggle("hidden", !show);
+}
+
+function fetchUsers() {
+  showLoader(true);
+  fetch(API, {
+    method: "POST",
+    body: JSON.stringify({ action: "admin_users" })
+  }).then(res => res.json()).then(users => {
+    const tbody = document.querySelector("#usersTable tbody");
+    tbody.innerHTML = "";
+    users.forEach(user => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${user.email}</td>
+        <td>${user.status}</td>
+        <td>
+  <select onchange="updateUserRole('${user.email}', this.value)">
+    <option value="user" ${user.role === "user" ? "selected" : ""}>User</option>
+    <option value="admin" ${user.role === "admin" ? "selected" : ""}>Admin</option>
+  </select>
+</td>
+
+        <td>
+          <select onchange="updateUserStatus('${user.email}', this.value)">
+            <option value="Active" ${user.status === "Active" ? "selected" : ""}>Active</option>
+            <option value="Not Verified" ${user.status === "Not Verified" ? "selected" : ""}>Not Verified</option>
+            <option value="Suspended" ${user.status === "Suspended" ? "selected" : ""}>Suspended</option>
+          </select>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+    showLoader(false);
+  });
+}
+
+function updateUserRole(email, newRole) {
+  showLoader(true);
+  fetch(API, {
+    method: "POST",
+    body: JSON.stringify({ action: "update_user_role", email, role: newRole })
+  })
+  .then(res => res.json())
+  .then(data => {
+    alert(data.message);
+    showLoader(false);
+  });
+}
+
+
+function updateUserStatus(email, newStatus) {
+  showLoader(true);
+  fetch(API, {
+    method: "POST",
+    body: JSON.stringify({ action: "update_user_status", email, status: newStatus })
+  }).then(res => res.json()).then(data => {
+    alert(data.message);
+    showLoader(false);
+  });
+}
+
+function fetchSubmissions() {
+  showLoader(true);
+  fetch(API, {
+    method: "POST",
+    body: JSON.stringify({ action: "admin_submissions" })
+  }).then(res => res.json()).then(data => {
+    const tbody = document.querySelector("#submissionsTable tbody");
+    tbody.innerHTML = "";
+    data.forEach(sub => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${sub.email}</td>
+        <td>
+  <a href="https://drive.google.com/uc?export=download&id=${sub.fileId}" target="_blank" style="text-decoration: none;">
+    ${sub.filename}
+    <span style="margin-left: 5px;">⬇️</span>
+  </a>
+</td>
+
+        <td>${sub.status}</td>
+        <td>${sub.date}</td>
+        <td>
+          <select onchange="updateSubmissionStatus('${sub.email}', '${sub.filename}', this.value)">
+            <option>Processing</option>
+            <option>Signed</option>
+            <option>Delivered</option>
+            <option>Rejected</option>
+          </select>
+        </td>
+        <td><button onclick="deleteSubmission('${sub.email}', '${sub.filename}')">Delete</button></td>
+      `;
+      tbody.appendChild(row);
+    });
+    showLoader(false);
+  });
+}
+
+function updateSubmissionStatus(email, filename, status) {
+  showLoader(true);
+  fetch(API, {
+    method: "POST",
+    body: JSON.stringify({ action: "update_submission_status", email, filename, status })
+  }).then(res => res.json()).then(data => {
+    alert(data.message);
+    showLoader(false);
+  });
+}
+
+function deleteSubmission(email, filename) {
+  if (!confirm("Delete this submission?")) return;
+  showLoader(true);
+  fetch(API, {
+    method: "POST",
+    body: JSON.stringify({ action: "delete_submission", email, filename })
+  }).then(res => res.json()).then(data => {
+    alert(data.message);
+    fetchSubmissions();
+    showLoader(false);
+  });
+}
+
+function filterByStatus() {
+  const filter = document.getElementById("statusFilter").value;
+  showLoader(true);
+  fetch(API, {
+    method: "POST",
+    body: JSON.stringify({ action: "admin_submissions" })
+  }).then(res => res.json()).then(data => {
+    const tbody = document.querySelector("#emailTable tbody");
+    tbody.innerHTML = "";
+    data.filter(d => d.status === filter).forEach(user => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td><input type="checkbox" class="userCheck" data-email="${user.email}" data-filename="${user.filename}" /></td>
+        <td>${user.email}</td>
+        <td>${user.filename}</td>
+        <td>${user.status}</td>
+      `;
+      tbody.appendChild(row);
+    });
+    showLoader(false);
+  });
+}
+
+function toggleSelectAll(el) {
+  const checkboxes = document.querySelectorAll(".userCheck");
+  checkboxes.forEach(cb => cb.checked = el.checked);
+}
+
+function sendBulkEmails() {
+  const checked = document.querySelectorAll(".userCheck:checked");
+  const status = document.getElementById("statusFilter").value;
+  if (checked.length === 0 || !status) return alert("Select users and a status first.");
+  const users = Array.from(checked).map(cb => ({ email: cb.dataset.email, filename: cb.dataset.filename }));
+
+  showLoader(true);
+  fetch(API, {
+    method: "POST",
+    body: JSON.stringify({ action: "send_bulk_email", users, status })
+  }).then(res => res.json()).then(data => {
+    alert(data.message);
+    showLoader(false);
+  });
+}
+
+// Initial fetches
+window.addEventListener("DOMContentLoaded", () => {
+  fetchUsers();
+  fetchSubmissions();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>User Dashboard</title>
+  <style>
+    body { font-family: Arial; background: #eef2f5; margin: 0; padding: 20px; }
+    .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 8px; }
+    textarea, input, button { width: 100%; padding: 10px; margin: 10px 0; }
+    .help-btn {
+      position: fixed;
+    bottom: 20px;
+    right: 0px;
+    padding: 10px;
+    background: #28a745;
+    color: white;
+    border: none;
+    width: 10%;
+    border-radius: 5px 0px 0px 5px;
+    cursor: pointer;
+    }
+    .help-popup { display: none; position: fixed; bottom: 80px; right: 20px; background: white; border: 1px solid #ccc; padding: 20px; border-radius: 10px; width: 300px; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
+    .loader-backdrop {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.4);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+    .loader {
+      width: 50px; height: 50px;
+      border: 6px solid #f3f3f3;
+      border-top: 6px solid #007bff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    .hidden {
+      display: none !important;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .logout-btn {
+      position: fixed;
+    top: 10px;
+    left: 0px;
+    width: 10%;
+    padding: 8px 16px;
+    background: #dc3545;
+    color: #fff;
+    border: none;
+    border-radius: 0px 5px 5px 0px;
+    cursor: pointer;
+    }
+
+    #helpMessage{
+      resize: none;
+      width:92.9%;
+      outline: none;
+    }
+
+    #upload983{
+      background-color: #0097e1;
+      border: none;
+      font-size:20px;
+      font-weight: bolder;
+      text-transform: uppercase;
+      color: #ffffff;
+      cursor:pointer;
+    }
+
+    #send983{
+      background-color: #0097e1;
+      border: none;
+      font-size:20px;
+      font-weight: bolder;
+      text-transform: uppercase;
+      color: #ffffff;
+      cursor:pointer;
+    }
+
+    #close983{
+    color: red;
+    position: absolute;
+    top: 0px;
+    right: 0px;
+    width: auto;
+    background: transparent;
+    border: none;
+    font-weight: bolder;
+    font-size: x-large;
+    cursor:pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Welcome, <span id="email"></span></h2>
+    <p>You can upload documents and track status here.</p>
+    <input type="file" id="fileInput" accept="application/pdf,image/*" />
+    <button onclick="uploadDocument()" id="upload983">Upload Document</button>
+    <hr />
+    <h3>Uploaded Documents</h3>
+    <div id="documents">Loading your documents...</div>
+
+  </div>
+
+  <button class="logout-btn" onclick="logout()">Logout</button>
+
+  <button class="help-btn" onclick="document.getElementById('helpPopup').style.display='block'">Help</button>
+  <div class="help-popup" id="helpPopup">
+    <h4>Send Help Message</h4>
+    <textarea id="helpMessage" placeholder="Enter your message..." required="yes"></textarea>
+    <button onclick="sendHelp()" id="send983">Send</button>
+    <button onclick="document.getElementById('helpPopup').style.display='none'" id="close983">❌</button>
+  </div>
+
+  <div id="loader" class="loader-backdrop hidden">
+    <div class="loader"></div>
+  </div>
+
+<script>
+  const API = "https://script.google.com/macros/s/AKfycbz2W_vo8iLgO9zt6ECiAj8Qy0Bzai246TtLmMQRa36-SsFcDt1m9AvDqokw3uUmxnTy/exec";
+
+  function showLoader(show) {
+    document.getElementById("loader").classList.toggle("hidden", !show);
+  }
+
+  function uploadDocument() {
+    const fileInput = document.getElementById("fileInput");
+    const file = fileInput.files[0];
+    const email = localStorage.getItem("userEmail");
+
+    if (!file) {
+      alert("Please select a file.");
+      return;
+    }
+
+    const reader = new FileReader();
+    showLoader(true);
+
+    reader.onloadend = function () {
+      const base64 = reader.result.split(",")[1];
+      const payload = {
+        action: "upload",
+        email: email,
+        filename: file.name,
+        base64: base64
+      };
+
+      fetch(API, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      })
+      .then(res => res.json())
+      .then(data => {
+        showLoader(false);
+        alert(data.message);
+        fileInput.value = "";
+        location.reload();
+      })
+      .catch(err => {
+        showLoader(false);
+        alert("Upload failed: " + err.message);
+      });
+    };
+
+    reader.readAsDataURL(file);
+  }
+
+function sendHelp() {
+  const email = localStorage.getItem("userEmail");
+  const message = document.getElementById("helpMessage").value.trim(); // Trim extra spaces
+
+  if (!message) {
+    alert("Please enter a help message before sending.");
+    return;
+  }
+
+  showLoader(true);
+
+  fetch(API, {
+    method: "POST",
+    body: JSON.stringify({ action: "help", email, message })
+  })
+  .then(res => res.json())
+  .then(data => {
+    showLoader(false);
+    alert(data.message);
+    document.getElementById("helpPopup").style.display = "none";
+    document.getElementById("helpMessage").value = ""; // Clear the textarea
+  });
+}
+
+
+  function logout() {
+    localStorage.removeItem("userEmail");
+    localStorage.removeItem("userPassword");
+    window.location.href = "index.html#login";
+  }
+
+
+
+  document.addEventListener("DOMContentLoaded", async () => {
+    const email = localStorage.getItem("userEmail");
+    const password = localStorage.getItem("userPassword");
+
+    if (!email || !password) {
+      window.location.href = "index.html#login";
+      return;
+    }
+
+    showLoader(true);
+
+    const res = await fetch(API, {
+      method: "POST",
+      body: JSON.stringify({
+        action: "login",
+        email,
+        password
+      })
+    });
+
+    const data = await res.json();
+    if (data.status !== "ok") {
+      localStorage.clear();
+      window.location.href = "index.html#login";
+    } else {
+      document.getElementById("email").textContent = email;
+      // Now load submissions
+      const subRes = await fetch(API, {
+        method: "POST",
+        body: JSON.stringify({ action: "get_user_submissions", email })
+      });
+      const subData = await subRes.json();
+      if (subData.status === "ok" && Array.isArray(subData.submissions)) {
+        const docContainer = document.getElementById("documents");
+docContainer.innerHTML = ""; // Clear previous
+
+if (subData.submissions.length === 0) {
+  docContainer.innerHTML = "<p>No documents uploaded yet.</p>";
+} else {
+  subData.submissions.forEach(doc => {
+    const item = document.createElement("div");
+    item.style.border = "1px solid #ccc";
+    item.style.borderRadius = "6px";
+    item.style.padding = "10px";
+    item.style.marginBottom = "10px";
+    item.innerHTML = `
+      <strong>${doc.filename}</strong><br/>
+      Status: <span style="color: #007bff;">${doc.status}</span><br/>
+      Date: ${new Date(doc.date).toLocaleString()}
+    `;
+    docContainer.appendChild(item);
+  });
+}
+
+      }
+    }
+
+    showLoader(false);
+  });
+</script>
+
+</body>
+</html>
