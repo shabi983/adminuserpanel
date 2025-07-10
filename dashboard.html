@@ -59,7 +59,7 @@
 
     #helpMessage{
       resize: none;
-      width:92.9%;
+      width:-webkit-fill-available;
       outline: none;
     }
 
@@ -95,12 +95,18 @@
     font-size: x-large;
     cursor:pointer;
     }
+        input[type="file"] {
+  display: none;
+}
   </style>
 </head>
 <body>
   <div class="container">
     <h2>Welcome, <span id="email"></span></h2>
     <p>You can upload documents and track status here.</p>
+    <label for="fileInput" class="custom-file-upload">
+        Upload File
+    </label>
     <input type="file" id="fileInput" accept="application/pdf,image/*" />
     <button onclick="uploadDocument()" id="upload983">Upload Document</button>
     <hr />
