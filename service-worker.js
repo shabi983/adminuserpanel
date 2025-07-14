@@ -1,11 +1,11 @@
 const CACHE_NAME = "client-portal-cache-v1";
 const urlsToCache = [
   "/",
-  "/index.html",
-  "/dashboard.html",
-  "/admin.html",
-  "/icon-192.png",
-  "/icon-512.png"
+  "https://github.com/shabi983/adminuserpanel/blob/main/index.html",
+  "https://github.com/shabi983/adminuserpanel/blob/main/dashboard.html",
+  "https://github.com/shabi983/adminuserpanel/blob/main/admin.html",
+  "https://github.com/shabi983/adminuserpanel/blob/main/icon-192.png",
+  "https://github.com/shabi983/adminuserpanel/blob/main/icon-512.png"
 ];
 
 // Install event – cache assets
@@ -41,7 +41,7 @@ self.addEventListener("fetch", event => {
       return response || fetch(event.request).catch(() => {
         // Offline fallback if needed
         if (event.request.mode === "navigate") {
-          return caches.match("/index.html");
+          return caches.match("https://github.com/shabi983/adminuserpanel/blob/main/index.html");
         }
       });
     })
