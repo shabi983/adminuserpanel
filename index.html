@@ -2,8 +2,8 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <link rel="manifest" href="/manifest.json">
- <meta name="theme-color" content="#1976d2">
+  <link rel="manifest" href="https://github.com/shabi983/adminuserpanel/blob/main/manifest.json">
+ <meta name="theme-color" content="#0097e1">
   <title>Abiha Softo - Client Portal</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
@@ -229,7 +229,7 @@
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("/service-worker.js")
+        .register("https://github.com/shabi983/adminuserpanel/blob/main/service-worker.js")
         .then(reg => console.log("✅ Service Worker registered:", reg.scope))
         .catch(err => console.error("❌ Service Worker registration failed:", err));
     });
