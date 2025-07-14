@@ -309,5 +309,16 @@ window.addEventListener("DOMContentLoaded", () => {
   fetchSubmissions();
 });
 </script>
+    <script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker
+        .register("https://github.com/shabi983/adminuserpanel/blob/main/service-worker.js")
+        .then(reg => console.log("✅ Service Worker registered:", reg.scope))
+        .catch(err => console.error("❌ Service Worker registration failed:", err));
+    });
+  }
+</script>
+  
 </body>
 </html>
